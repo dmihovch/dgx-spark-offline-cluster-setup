@@ -218,3 +218,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Generated offline bundle output
+/offline-bundle/
+/offline-bundle-*/
+/.offline-bundle.*/

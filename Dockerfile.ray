@@ -1,0 +1,15 @@
+# Derived vLLM image with the locked Ray runtime for offline DGX Spark runs.
+#
+# scripts/start_ray.sh installs ray[default] at container start. This image
+# preinstalls the same constrained runtime and disables package-index access.
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+
+ARG RAY_VERSION
+COPY ray-runtime-constraints.txt /tmp/ray-runtime-constraints.txt
+RUN pip install --no-cache-dir --constraint /tmp/ray-runtime-constraints.txt \
+    "ray[default]==${RAY_VERSION}" \
+    && python3 -c 'import ray; print("ray", ray.__version__)' \
+    && rm /tmp/ray-runtime-constraints.txt
+
+ENV PIP_NO_INDEX=1
