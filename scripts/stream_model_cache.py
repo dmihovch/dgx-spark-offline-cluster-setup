@@ -27,6 +27,7 @@ HELPER_NAMES: tuple[str, ...] = (
 REMOTE_DIRECTORY_PATTERN: re.Pattern[str] = re.compile(
     r"/tmp/offline-setup\.[A-Za-z0-9]+"
 )
+MODEL_LABEL_PATTERN: re.Pattern[str] = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
 REMOTE_PORT_COMMAND: str = (
     "python3 -c 'import socket; "
     "connection = socket.socket(); "
@@ -43,6 +44,7 @@ class Arguments:
     ssh_target: str
     config: str
     benchmark_repo: str | None
+    model_label: str | None
 
 
 def parse_arguments(argv: list[str]) -> Arguments:
@@ -57,7 +59,14 @@ def parse_arguments(argv: list[str]) -> Arguments:
         "config",
         nargs="?",
         choices=("single", "tp2", "pp2", "all"),
-        default="single",
+        default=None,
+        help=(
+            "serving config; defaults to single, or all when --model-label is set"
+        ),
+    )
+    parser.add_argument(
+        "--model-label",
+        help="download one model label from the target checkout's models.yaml",
     )
     parser.add_argument(
         "--benchmark-repo",
@@ -75,10 +84,19 @@ def parse_arguments(argv: list[str]) -> Arguments:
         parsed.benchmark_repo
     ).is_absolute():
         parser.error("--benchmark-repo must be an absolute target-node path")
+    if parsed.model_label is not None and MODEL_LABEL_PATTERN.fullmatch(
+        parsed.model_label
+    ) is None:
+        parser.error(
+            "--model-label must contain only letters, digits, periods, underscores, "
+            "or hyphens"
+        )
+    config: str = parsed.config or ("all" if parsed.model_label else "single")
     return Arguments(
         ssh_target=parsed.ssh_target,
-        config=parsed.config,
+        config=config,
         benchmark_repo=parsed.benchmark_repo,
+        model_label=parsed.model_label,
     )
 
 
@@ -220,6 +238,7 @@ def run_remote_download(
     remote_port: int,
     config: str,
     benchmark_repo: str | None,
+    model_label: str | None,
 ) -> int:
     if benchmark_repo is None:
         benchmark_assignment: str = (
@@ -228,9 +247,15 @@ def run_remote_download(
     else:
         benchmark_assignment = "BENCHMARK_REPO=" + shlex.quote(benchmark_repo)
     proxy_url: str = f"http://127.0.0.1:{remote_port}"
+    model_assignment: str = (
+        f"MODEL_LABELS={shlex.quote(model_label)} "
+        if model_label is not None
+        else ""
+    )
     remote_script: str = f"{remote_directory}/predownload.sh"
     remote_command: str = (
         f"{benchmark_assignment} "
+        f"{model_assignment}"
         f"DOWNLOAD_PROXY={shlex.quote(proxy_url)} "
         f"bash {shlex.quote(remote_script)} {shlex.quote(config)}"
     )
@@ -276,6 +301,7 @@ def main(argv: list[str]) -> int:
             remote_port,
             arguments.config,
             arguments.benchmark_repo,
+            arguments.model_label,
         )
     finally:
         stop_ssh_reverse_forward(tunnel_process)

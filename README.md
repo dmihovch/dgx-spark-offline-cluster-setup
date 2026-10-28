@@ -131,7 +131,20 @@ python3 scripts/stream_model_cache.py spark-head all
 
 Replace `spark-head` with an SSH alias or `user@host` for the node. The target
 must be reachable with both `ssh` and `scp` from the relay. The runner accepts
-`single`, `tp2`, `pp2`, or `all`; the default is `single`.
+`single`, `tp2`, `pp2`, or `all`; the default is `single` when no model label is
+provided.
+
+To download one model entry, pass its `label` from the target checkout's
+`configs/models.yaml`:
+
+```bash
+python3 scripts/stream_model_cache.py spark-head --model-label llama3.1-8b-fp8
+```
+
+When `--model-label` is used without a config, the runner searches all configs
+and downloads only that label. An explicit config limits selection to models
+configured for that serving config. The selected entry can also include a
+separate tokenizer repository.
 
 When the benchmark checkout uses a different path on the node, pass that
 absolute target-node path:
